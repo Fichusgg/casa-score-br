@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { PropertySummary } from "@/components/PropertySummary";
 import { InvestmentSnapshot } from "@/components/InvestmentSnapshot";
 import { AssumptionsDrawer } from "@/components/AssumptionsDrawer";
+import { NavLink } from "@/components/NavLink";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, Download, Share2 } from "lucide-react";
 import { toast } from "sonner";
@@ -102,7 +103,8 @@ const Analysis = () => {
               Voltar
             </Button>
             
-            <div className="flex gap-2">
+            <div className="flex items-center gap-2">
+              <NavLink />
               <Button
                 variant="outline"
                 onClick={handleShare}

@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { TrendingUp, Calculator, BarChart3 } from "lucide-react";
+import { NavLink } from "@/components/NavLink";
 
 const Index = () => {
   const navigate = useNavigate();
@@ -117,8 +118,11 @@ const Index = () => {
     <div className="min-h-screen bg-gradient-to-br from-background via-muted/20 to-background">
       {/* Hero Section */}
       <section className="container mx-auto px-4 py-16">
-        <div className="max-w-4xl mx-auto text-center space-y-8">
-          <div className="space-y-4">
+        <div className="max-w-4xl mx-auto space-y-8">
+          <div className="flex justify-end mb-6">
+            <NavLink />
+          </div>
+          <div className="space-y-4 text-center">
             <h1 className="text-5xl md:text-6xl font-bold tracking-tight">
               <span className="bg-gradient-brand bg-clip-text text-transparent">
                 ImmoYield
