@@ -40,15 +40,14 @@ const Index = () => {
         body: { url: url.trim() },
       });
 
-      if (error) {
-        // Check if it's a scraping blocked error
-        if (error.message?.includes('bloqueou a extração')) {
-          toast.error(error.message || 'Site bloqueou extração automática. Use a aba "Insira Manualmente".');
-          setLoading(false);
-          return;
-        }
-        throw error;
+      // Check if scraping was blocked (403 response with error data)
+      if (data && data.error === 'SCRAPING_BLOCKED') {
+        toast.error(data.message || 'Site bloqueou extração automática. Use a aba "Insira Manualmente".');
+        setLoading(false);
+        return;
       }
+
+      if (error) throw error;
 
       // Create analysis with parsed data
       const { data: analysis, error: analysisError } = await supabase
