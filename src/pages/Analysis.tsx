@@ -5,6 +5,7 @@ import { PropertySummary } from "@/components/PropertySummary";
 import { InvestmentSnapshot } from "@/components/InvestmentSnapshot";
 import { AssumptionsDrawer } from "@/components/AssumptionsDrawer";
 import { NavLink } from "@/components/NavLink";
+import { ComparablesSection } from "@/components/ComparablesSection";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, Download, Share2 } from "lucide-react";
 import { toast } from "sonner";
@@ -21,6 +22,7 @@ interface Analysis {
   metrics: any;
   assumptions: any;
   verdict?: 'good' | 'fair' | 'overpriced';
+  geo?: { x: number; y: number } | null;
 }
 
 const Analysis = () => {
@@ -126,7 +128,7 @@ const Analysis = () => {
       </header>
 
       {/* Main Content */}
-      <main className="container mx-auto px-4 py-8">
+      <main className="container mx-auto px-4 py-8 space-y-6">
         <div className="grid lg:grid-cols-2 gap-6">
           <PropertySummary
             title={analysis.title}
@@ -145,6 +147,13 @@ const Analysis = () => {
             onAdjustAssumptions={() => setAssumptionsOpen(true)}
           />
         </div>
+
+        <ComparablesSection
+          price={analysis.price}
+          area={analysis.area_m2}
+          estimatedRent={analysis.estimated_rent_monthly}
+          geo={analysis.geo ? [analysis.geo.x, analysis.geo.y] : undefined}
+        />
       </main>
 
       <AssumptionsDrawer
