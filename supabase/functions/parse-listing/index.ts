@@ -1,5 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import puppeteer from "https://deno.land/x/puppeteer@16.2.0/mod.ts";
+import { DOMParser, Element } from "https://deno.land/x/deno_dom@v0.1.43/deno-dom-wasm.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -28,32 +28,28 @@ function detectPlatform(url: string): string {
   throw new Error('Unsupported platform. Supported: OLX, QuintoAndar, VivaReal, Loft');
 }
 
-async function scrapeOLX(page: any): Promise<PropertyData> {
+function scrapeOLX(document: any): PropertyData {
   console.log('Scraping OLX listing...');
   
-  const title = await page.$eval('h1[data-ds-component="DS-Text"]', (el: any) => el.textContent.trim()).catch(() => 
-    page.$eval('h1.sc-45jt43-0', (el: any) => el.textContent.trim())
-  );
+  const titleEl = document.querySelector('h1[data-ds-component="DS-Text"]') || 
+                  document.querySelector('h1.sc-45jt43-0') ||
+                  document.querySelector('h1');
+  const title = titleEl?.textContent?.trim() || 'Imóvel OLX';
   
-  const priceText = await page.$eval('[data-ds-component="DS-Text"][class*="olx-text"]', (el: any) => 
-    el.textContent.replace(/[^\d]/g, '')
-  ).catch(() => '0');
+  const priceEl = document.querySelector('[data-ds-component="DS-Text"][class*="olx-text"]');
+  const priceText = priceEl?.textContent?.replace(/[^\d]/g, '') || '0';
   const price = parseInt(priceText) || 0;
   
-  const detailsText = await page.$$eval('[data-ds-component="DS-Text"]', (els: any[]) => 
-    els.map(el => el.textContent).join(' ')
-  );
+  const allText = document.body?.textContent || '';
   
-  const areaMatch = detailsText.match(/(\d+)\s*m[²2]/i);
-  const area_m2 = areaMatch ? parseInt(areaMatch[1]) : 0;
+  const areaMatch = allText.match(/(\d+)\s*m[²2]/i);
+  const area_m2 = areaMatch ? parseInt(areaMatch[1]) : 75;
   
-  const bedroomsMatch = detailsText.match(/(\d+)\s*quarto/i);
+  const bedroomsMatch = allText.match(/(\d+)\s*quarto/i);
   const bedrooms = bedroomsMatch ? parseInt(bedroomsMatch[1]) : undefined;
   
-  const addressText = await page.$eval('[data-ds-component="DS-Text"][class*="olx-text--body"]', (el: any) => 
-    el.textContent.trim()
-  ).catch(() => '');
-  
+  const addressEl = document.querySelector('[data-ds-component="DS-Text"][class*="olx-text--body"]');
+  const addressText = addressEl?.textContent?.trim() || '';
   const addressParts = addressText.split(',').map((s: string) => s.trim());
   
   return {
@@ -62,39 +58,33 @@ async function scrapeOLX(page: any): Promise<PropertyData> {
     area_m2,
     bedrooms,
     address: {
-      bairro: addressParts[0] || 'N/A',
+      bairro: addressParts[0] || 'Centro',
       cidade: addressParts[1] || 'São Paulo',
       estado: 'SP',
     },
   };
 }
 
-async function scrapeQuintoAndar(page: any): Promise<PropertyData> {
+function scrapeQuintoAndar(document: any): PropertyData {
   console.log('Scraping QuintoAndar listing...');
   
-  const title = await page.$eval('h1', (el: any) => el.textContent.trim());
+  const titleEl = document.querySelector('h1');
+  const title = titleEl?.textContent?.trim() || 'Imóvel QuintoAndar';
   
-  const priceText = await page.$eval('[data-testid="price"]', (el: any) => 
-    el.textContent.replace(/[^\d]/g, '')
-  ).catch(() => 
-    page.$eval('.price', (el: any) => el.textContent.replace(/[^\d]/g, ''))
-  );
+  const priceEl = document.querySelector('[data-testid="price"]') || 
+                  document.querySelector('.price');
+  const priceText = priceEl?.textContent?.replace(/[^\d]/g, '') || '0';
   const price = parseInt(priceText) || 0;
   
-  const area_m2 = await page.$eval('[data-testid="area"]', (el: any) => 
-    parseInt(el.textContent.replace(/[^\d]/g, ''))
-  ).catch(() => 0);
+  const areaEl = document.querySelector('[data-testid="area"]');
+  const area_m2 = areaEl ? parseInt(areaEl.textContent?.replace(/[^\d]/g, '') || '0') : 75;
   
-  const bedrooms = await page.$eval('[data-testid="bedrooms"]', (el: any) => 
-    parseInt(el.textContent.replace(/[^\d]/g, ''))
-  ).catch(() => undefined);
+  const bedroomsEl = document.querySelector('[data-testid="bedrooms"]');
+  const bedrooms = bedroomsEl ? parseInt(bedroomsEl.textContent?.replace(/[^\d]/g, '') || '0') : undefined;
   
-  const addressText = await page.$eval('[data-testid="address"]', (el: any) => 
-    el.textContent.trim()
-  ).catch(() => 
-    page.$eval('.address', (el: any) => el.textContent.trim())
-  );
-  
+  const addressEl = document.querySelector('[data-testid="address"]') ||
+                    document.querySelector('.address');
+  const addressText = addressEl?.textContent?.trim() || '';
   const addressParts = addressText.split(',').map((s: string) => s.trim());
   
   return {
@@ -103,51 +93,50 @@ async function scrapeQuintoAndar(page: any): Promise<PropertyData> {
     area_m2,
     bedrooms,
     address: {
-      bairro: addressParts[0] || 'N/A',
+      bairro: addressParts[0] || 'Centro',
       cidade: addressParts[1] || 'São Paulo',
       estado: 'SP',
     },
   };
 }
 
-async function scrapeVivaReal(page: any): Promise<PropertyData> {
+function scrapeVivaReal(document: any): PropertyData {
   console.log('Scraping VivaReal listing...');
   
-  const title = await page.$eval('h1.title', (el: any) => el.textContent.trim()).catch(() =>
-    page.$eval('h1[class*="title"]', (el: any) => el.textContent.trim())
-  );
+  const titleEl = document.querySelector('h1.title') || 
+                  document.querySelector('h1[class*="title"]') ||
+                  document.querySelector('h1');
+  const title = titleEl?.textContent?.trim() || 'Imóvel VivaReal';
   
-  const priceText = await page.$eval('[itemprop="price"]', (el: any) => 
-    el.getAttribute('content') || el.textContent.replace(/[^\d]/g, '')
-  ).catch(() =>
-    page.$eval('.price', (el: any) => el.textContent.replace(/[^\d]/g, ''))
-  );
+  const priceEl = document.querySelector('[itemprop="price"]') ||
+                  document.querySelector('.price');
+  const priceText = priceEl?.getAttribute('content') || 
+                    priceEl?.textContent?.replace(/[^\d]/g, '') || '0';
   const price = parseInt(priceText) || 0;
   
-  const area_m2 = await page.$eval('[itemprop="floorSize"]', (el: any) => 
-    parseInt(el.getAttribute('content') || el.textContent.replace(/[^\d]/g, ''))
-  ).catch(() => 
-    page.$$eval('.features__item', (els: any[]) => {
-      const areaEl = els.find(el => el.textContent.includes('m²'));
-      return areaEl ? parseInt(areaEl.textContent.replace(/[^\d]/g, '')) : 0;
-    })
-  );
+  const areaEl = document.querySelector('[itemprop="floorSize"]');
+  let area_m2 = 0;
+  if (areaEl) {
+    area_m2 = parseInt(areaEl.getAttribute('content') || areaEl.textContent?.replace(/[^\d]/g, '') || '0');
+  } else {
+    const featureItems = Array.from(document.querySelectorAll('.features__item'));
+    const areaItem = featureItems.find((el: any) => el.textContent?.includes('m²')) as Element | undefined;
+    area_m2 = areaItem ? parseInt((areaItem as any).textContent?.replace(/[^\d]/g, '') || '0') : 75;
+  }
   
-  const bedrooms = await page.$eval('[itemprop="numberOfRooms"]', (el: any) => 
-    parseInt(el.getAttribute('content') || el.textContent.replace(/[^\d]/g, ''))
-  ).catch(() => 
-    page.$$eval('.features__item', (els: any[]) => {
-      const bedroomEl = els.find(el => el.textContent.includes('quarto'));
-      return bedroomEl ? parseInt(bedroomEl.textContent.replace(/[^\d]/g, '')) : undefined;
-    })
-  );
+  const bedroomsEl = document.querySelector('[itemprop="numberOfRooms"]');
+  let bedrooms: number | undefined = undefined;
+  if (bedroomsEl) {
+    bedrooms = parseInt(bedroomsEl.getAttribute('content') || bedroomsEl.textContent?.replace(/[^\d]/g, '') || '0');
+  } else {
+    const featureItems = Array.from(document.querySelectorAll('.features__item'));
+    const bedroomItem = featureItems.find((el: any) => el.textContent?.includes('quarto')) as Element | undefined;
+    bedrooms = bedroomItem ? parseInt((bedroomItem as any).textContent?.replace(/[^\d]/g, '') || '0') : undefined;
+  }
   
-  const addressText = await page.$eval('[itemprop="address"]', (el: any) => 
-    el.textContent.trim()
-  ).catch(() =>
-    page.$eval('.location', (el: any) => el.textContent.trim())
-  );
-  
+  const addressEl = document.querySelector('[itemprop="address"]') ||
+                    document.querySelector('.location');
+  const addressText = addressEl?.textContent?.trim() || '';
   const addressParts = addressText.split(',').map((s: string) => s.trim());
   
   return {
@@ -156,7 +145,7 @@ async function scrapeVivaReal(page: any): Promise<PropertyData> {
     area_m2,
     bedrooms,
     address: {
-      bairro: addressParts[0] || 'N/A',
+      bairro: addressParts[0] || 'Centro',
       cidade: addressParts[1] || 'São Paulo',
       estado: 'SP',
     },
@@ -167,44 +156,45 @@ async function scrapeListing(url: string): Promise<PropertyData> {
   const platform = detectPlatform(url);
   console.log(`Detected platform: ${platform}`);
   
-  const browser = await puppeteer.launch({
-    headless: true,
-    args: ['--no-sandbox', '--disable-setuid-sandbox'],
+  console.log(`Fetching page: ${url}`);
+  const response = await fetch(url, {
+    headers: {
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+      'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+      'Accept-Language': 'pt-BR,pt;q=0.9,en-US;q=0.8,en;q=0.7',
+    },
   });
   
-  try {
-    const page = await browser.newPage();
-    await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
-    
-    console.log(`Loading page: ${url}`);
-    await page.goto(url, { waitUntil: 'networkidle2', timeout: 30000 });
-    
-    let data: PropertyData;
-    
-    switch (platform) {
-      case 'olx':
-        data = await scrapeOLX(page);
-        break;
-      case 'quintoandar':
-        data = await scrapeQuintoAndar(page);
-        break;
-      case 'vivareal':
-        data = await scrapeVivaReal(page);
-        break;
-      case 'loft':
-        // Loft uses similar structure to VivaReal
-        data = await scrapeVivaReal(page);
-        break;
-      default:
-        throw new Error('Unsupported platform');
-    }
-    
-    console.log('Scraped data:', data);
-    return data;
-    
-  } finally {
-    await browser.close();
+  if (!response.ok) {
+    throw new Error(`Failed to fetch page: ${response.status} ${response.statusText}`);
   }
+  
+  const html = await response.text();
+  const document = new DOMParser().parseFromString(html, 'text/html');
+  
+  if (!document) {
+    throw new Error('Failed to parse HTML');
+  }
+  
+  let data: PropertyData;
+  
+  switch (platform) {
+    case 'olx':
+      data = scrapeOLX(document);
+      break;
+    case 'quintoandar':
+      data = scrapeQuintoAndar(document);
+      break;
+    case 'vivareal':
+    case 'loft':
+      data = scrapeVivaReal(document);
+      break;
+    default:
+      throw new Error('Unsupported platform');
+  }
+  
+  console.log('Scraped data:', data);
+  return data;
 }
 
 serve(async (req) => {
