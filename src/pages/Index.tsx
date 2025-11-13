@@ -40,7 +40,15 @@ const Index = () => {
         body: { url: url.trim() },
       });
 
-      if (error) throw error;
+      if (error) {
+        // Check if it's a scraping blocked error
+        if (error.message?.includes('bloqueou a extração')) {
+          toast.error(error.message || 'Site bloqueou extração automática. Use a aba "Insira Manualmente".');
+          setLoading(false);
+          return;
+        }
+        throw error;
+      }
 
       // Create analysis with parsed data
       const { data: analysis, error: analysisError } = await supabase
@@ -63,6 +71,7 @@ const Index = () => {
         body: { analysisId: analysis.id },
       });
 
+      toast.success('Análise criada com sucesso!');
       navigate(`/analysis?id=${analysis.id}`);
     } catch (error: any) {
       console.error('Error:', error);
