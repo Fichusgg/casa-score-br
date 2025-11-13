@@ -4,8 +4,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
-import { Trash2, Home, TrendingUp, MapPin } from "lucide-react";
+import { Trash2, Home, TrendingUp, MapPin, GitCompare } from "lucide-react";
 import type { Tables } from "@/integrations/supabase/types";
 
 type Analysis = Tables<"analyses">;
@@ -16,6 +17,7 @@ export default function History() {
   const [analyses, setAnalyses] = useState<Analysis[]>([]);
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState<any>(null);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
 
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
@@ -102,18 +104,47 @@ export default function History() {
     );
   }
 
+  const toggleSelection = (id: string) => {
+    setSelectedIds(prev => 
+      prev.includes(id) ? prev.filter(selectedId => selectedId !== id) : [...prev, id]
+    );
+  };
+
+  const handleCompare = () => {
+    if (selectedIds.length < 2) {
+      toast({
+        title: "Selecione pelo menos 2 análises",
+        description: "Para comparar, você precisa selecionar no mínimo 2 análises.",
+        variant: "destructive",
+      });
+      return;
+    }
+    navigate(`/comparison?ids=${selectedIds.join(",")}`);
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-secondary/10 to-background">
       <div className="container mx-auto px-4 py-8 max-w-5xl">
         <div className="flex items-center justify-between mb-8">
           <div>
             <h1 className="text-3xl font-bold text-foreground mb-2">Minhas Análises</h1>
-            <p className="text-muted-foreground">{analyses.length} análises salvas</p>
+            <p className="text-muted-foreground">
+              {analyses.length} análises salvas
+              {selectedIds.length > 0 && ` · ${selectedIds.length} selecionadas`}
+            </p>
           </div>
-          <Button variant="outline" onClick={() => navigate("/")}>
-            <Home className="h-4 w-4 mr-2" />
-            Início
-          </Button>
+          <div className="flex gap-2">
+            {selectedIds.length >= 2 && (
+              <Button variant="default" onClick={handleCompare}>
+                <GitCompare className="h-4 w-4 mr-2" />
+                Comparar ({selectedIds.length})
+              </Button>
+            )}
+            <Button variant="outline" onClick={() => navigate("/")}>
+              <Home className="h-4 w-4 mr-2" />
+              Início
+            </Button>
+          </div>
         </div>
 
         {analyses.length === 0 ? (
@@ -140,17 +171,26 @@ export default function History() {
               return (
                 <Card key={analysis.id} className="border-border/50 hover:border-primary/50 transition-colors">
                   <CardHeader>
-                    <div className="flex items-start justify-between">
+                    <div className="flex items-start gap-3">
+                      <Checkbox
+                        checked={selectedIds.includes(analysis.id)}
+                        onCheckedChange={() => toggleSelection(analysis.id)}
+                        className="mt-1"
+                      />
                       <div className="flex-1">
-                        <CardTitle className="text-lg mb-2">{analysis.title}</CardTitle>
-                        <CardDescription className="flex items-center gap-1">
-                          <MapPin className="h-3 w-3" />
-                          {address?.bairro}, {address?.cidade} - {address?.estado}
-                        </CardDescription>
+                        <div className="flex items-start justify-between">
+                          <div className="flex-1">
+                            <CardTitle className="text-lg mb-2">{analysis.title}</CardTitle>
+                            <CardDescription className="flex items-center gap-1">
+                              <MapPin className="h-3 w-3" />
+                              {address?.bairro}, {address?.cidade} - {address?.estado}
+                            </CardDescription>
+                          </div>
+                          <Badge className={getVerdictColor(analysis.verdict)}>
+                            {getVerdictLabel(analysis.verdict)}
+                          </Badge>
+                        </div>
                       </div>
-                      <Badge className={getVerdictColor(analysis.verdict)}>
-                        {getVerdictLabel(analysis.verdict)}
-                      </Badge>
                     </div>
                   </CardHeader>
                   <CardContent>
